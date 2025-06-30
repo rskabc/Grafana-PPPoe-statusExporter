@@ -1,11 +1,14 @@
 [Unit]
-Description=PPPoE Status Exporter every 15 seconds
+Description=PPPoE Status Exporter via MikroTik API (every 15 seconds)
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/python3 /path/to/pppoe_status_exporter.py
+ExecStart=/usr/bin/python3 /opt/pppoe-exporter/pppoe_status_exporter.py
 Restart=always
 RestartSec=15s
+WorkingDirectory=/opt/pppoe-exporter
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
