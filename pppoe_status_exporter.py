@@ -1,3 +1,6 @@
+# pppoe_status_exporter.py
+# Author: Reski Abuchaer (@rskabc)
+# License: MIT
 from librouteros import connect
 import requests
 
