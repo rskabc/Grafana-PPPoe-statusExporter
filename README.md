@@ -1,36 +1,29 @@
-# PPPoE User Status Exporter for MikroTik → Prometheus → Grafana
+# PPPoE Status Exporter for MikroTik → Prometheus → Grafana
 
-🔧 **Pantau status aktif/nonaktif user PPPoE dari MikroTik Router dan tampilkan di Grafana menggunakan Prometheus Pushgateway.**
+🔧 Export status aktif/tidak aktif user PPPoE dari MikroTik ke Prometheus Pushgateway secara otomatis setiap 15 detik, lalu visualisasikan di Grafana.
 
----
-
-## 🚀 Fitur
-
-- Mengambil data user PPPoE dari `/ppp secret` dan `/ppp active` via MikroTik API
-- Menandai status user:
-  - `1` = aktif
-  - `0` = tidak aktif
-- Mengirim metrik ke **Prometheus Pushgateway**
-- Visualisasi real-time di **Grafana** menggunakan panel tabel/stat
+📍 **Repository Resmi:**  
+https://github.com/rskabc/Grafana-PPPoe-statusExporter
 
 ---
 
-## 📦 Kebutuhan Sistem
+## 📦 Fitur
 
-- Python 3.x
-- MikroTik Router dengan API diaktifkan (`/ip service enable api`)
-- Docker (untuk Prometheus, Pushgateway, Grafana)
-- Pip packages:
-  - `librouteros`
-  - `requests`
+- Mengambil data user dari `/ppp secret` MikroTik via API
+- Mendeteksi user yang sedang aktif dari `/ppp active`
+- Menandai status user sebagai metrik:
+  - `1` → Aktif
+  - `0` → Tidak Aktif
+- Push ke **Prometheus Pushgateway**
+- Monitoring real-time di **Grafana**
+- Berjalan otomatis via `systemd` setiap 15 detik
 
 ---
 
-## 🛠 Instalasi
+## 🚀 Instalasi Cepat
 
-### 1. Clone & Install Dependency
+### 1. Clone Repo
 
 ```bash
-git clone https://github.com/rskabc/Grafana-PPPoe-statusExporter/pppoe-prometheus-exporter.git
-cd pppoe-prometheus-exporter
-pip install -r requirements.txt
+git clone https://github.com/rskabc/Grafana-PPPoe-statusExporter.git
+cd Grafana-PPPoe-statusExporter
