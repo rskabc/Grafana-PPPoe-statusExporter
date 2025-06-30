@@ -1,0 +1,11 @@
+[Unit]
+Description=PPPoE Status Exporter every 15 seconds
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /path/to/pppoe_status_exporter.py
+Restart=always
+RestartSec=15s
+
+[Install]
+WantedBy=multi-user.target
