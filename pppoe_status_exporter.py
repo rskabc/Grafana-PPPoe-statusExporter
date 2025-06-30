@@ -1,82 +1,69 @@
 # pppoe_status_exporter.py
 # Author: Reski Abuchaer (@rskabc)
 # License: MIT
-from librouteros import connect
+import os
+import re
+import json
 import requests
+from librouteros import connect
+from pathlib import Path
 
-# -----------------------------
-# Konfigurasi
-# -----------------------------
+MT_HOST = os.getenv('MT_HOST')
+MT_USERNAME = os.getenv('MT_USERNAME')
+MT_PASSWORD = os.getenv('MT_PASSWORD')
+PUSH_URL = os.getenv('PUSH_URL', 'http://pushgateway:9091/metrics/job/mikrotik_pppoe_users')
 
-ROUTER_IP = '10.0.0.1'           # Ganti dengan IP MikroTik kamu
-USERNAME = 'admin'               # Username login MikroTik
-PASSWORD = 'yourpassword'        # Password MikroTik
-PUSH_URL = 'http://localhost:9091/metrics/job/mikrotik_pppoe_users'
+if not MT_USERNAME or not MT_PASSWORD or not MT_HOST:
+    raise ValueError("Environment variables MT_HOST, MT_USERNAME, and MT_PASSWORD must be set")
 
-# -----------------------------
-# Ambil data dari MikroTik
-# -----------------------------
+def parse_uptime_to_seconds(uptime_str):
+    total = 0
+    units = {'d': 86400, 'h': 3600, 'm': 60, 's': 1}
+    matches = re.findall(r'(\d+)([dhms])', uptime_str)
+    for value, unit in matches:
+        total += int(value) * units[unit]
+    return total
 
-def get_pppoe_status():
+def fetch_active_users():
     try:
         api = connect(
-            host=ROUTER_IP,
-            username=USERNAME,
-            password=PASSWORD,
-            port=8728
+            host=MT_HOST,
+            username=MT_USERNAME,
+            password=MT_PASSWORD
         )
-
-        # Ambil semua user dari /ppp secret
-        all_users = {u['name']: {'status': 0, 'ip': '0.0.0.0'} for u in api.path('ppp', 'secret')}
-
-        # Ambil user yang sedang aktif dari /ppp active
-        for u in api.path('ppp', 'active'):
-            name = u['name']
-            ip = u.get('address', '0.0.0.0')
-            if name in all_users:
-                all_users[name] = {'status': 1, 'ip': ip}
-
-        return all_users
-
+        return list(api('/ppp/active/print'))
     except Exception as e:
-        print(f'Gagal koneksi ke MikroTik: {e}')
-        return {}
+        print(f"Gagal koneksi ke MikroTik: {e}")
+        return []
 
-# -----------------------------
-# Push ke Prometheus
-# -----------------------------
+def push_to_prometheus(active_users):
+    lines = []
 
-def push_to_prometheus(user_status_dict):
-    if not user_status_dict:
-        print("Tidak ada data untuk dikirim.")
-        return
+    for user in active_users:
+        name = user.get('name')
+        address = user.get('address', '0.0.0.0')
+        caller_id = user.get('caller-id', 'unknown')
+        uptime_str = user.get('uptime', '0s')
+        uptime = parse_uptime_to_seconds(uptime_str)
 
-    lines = [
-        '# HELP mikrotik_pppoe_user_status 1=aktif, 0=tidak aktif',
-        '# TYPE mikrotik_pppoe_user_status gauge'
-    ]
+        lines.append(f'mikrotik_pppoe_user_status{{user="{name}", instance="{address}"}} 1')
+        lines.append(f'mikrotik_pppoe_user_callerid{{user="{name}", caller_id="{caller_id}"}} 1')
+        lines.append(f'mikrotik_pppoe_user_uptime_seconds{{user="{name}"}} {uptime}')
 
-    for user, data in user_status_dict.items():
-        status = data['status']
-        ip = data['ip']
-        lines.append(f'mikrotik_pppoe_user_status{{user="{user}", ip="{ip}"}} {status}')
-
-    payload = '\n'.join(lines) + '\n'
+    payload = "\n".join(lines) + "\n"
 
     try:
         response = requests.post(PUSH_URL, data=payload)
-        if response.status_code in (200, 202):
-            print('Metrics pushed successfully')
+        if response.status_code == 200:
+            print("Metrics pushed successfully")
         else:
-            print(f'Failed to push metrics: {response.status_code} - {response.text}')
-    except requests.exceptions.RequestException as e:
-        print(f'Error saat mengirim ke Pushgateway: {e}')
-
-# -----------------------------
-# Main
-# -----------------------------
+            print(f"Failed to push metrics: {response.status_code} - {response.text}")
+    except Exception as e:
+        print(f"Error saat mengirim ke Pushgateway: {e}")
 
 if __name__ == "__main__":
-    status = get_pppoe_status()
-    push_to_prometheus(status)
-
+    users = fetch_active_users()
+    if users:
+        push_to_prometheus(users)
+    else:
+        print("Tidak ada data untuk dikirim.")
