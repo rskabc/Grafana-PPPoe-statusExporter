@@ -11,7 +11,7 @@ import requests
 ROUTER_IP = '10.0.0.1'           # Ganti dengan IP MikroTik kamu
 USERNAME = 'admin'               # Username login MikroTik
 PASSWORD = 'yourpassword'        # Password MikroTik
-PUSH_URL = 'http://localhost:9091/metrics/job/mikrotik_pppoe_users'  # Ubah jika Pushgateway di server lain
+PUSH_URL = 'http://localhost:9091/metrics/job/mikrotik_pppoe_users'
 
 # -----------------------------
 # Ambil data dari MikroTik
@@ -26,16 +26,15 @@ def get_pppoe_status():
             port=8728
         )
 
-        # Semua user dari /ppp secret
-        all_users = {u['name']: 0 for u in api.path('ppp', 'secret')}
+        # Ambil semua user dari /ppp secret
+        all_users = {u['name']: {'status': 0, 'ip': '0.0.0.0'} for u in api.path('ppp', 'secret')}
 
-        # User yang sedang aktif dari /ppp active
-        active_users = [u['name'] for u in api.path('ppp', 'active')]
-
-        # Tandai user yang aktif
-        for user in active_users:
-            if user in all_users:
-                all_users[user] = 1
+        # Ambil user yang sedang aktif dari /ppp active
+        for u in api.path('ppp', 'active'):
+            name = u['name']
+            ip = u.get('address', '0.0.0.0')
+            if name in all_users:
+                all_users[name] = {'status': 1, 'ip': ip}
 
         return all_users
 
@@ -44,7 +43,7 @@ def get_pppoe_status():
         return {}
 
 # -----------------------------
-# Push ke Pushgateway
+# Push ke Prometheus
 # -----------------------------
 
 def push_to_prometheus(user_status_dict):
@@ -57,19 +56,19 @@ def push_to_prometheus(user_status_dict):
         '# TYPE mikrotik_pppoe_user_status gauge'
     ]
 
-    for user, status in user_status_dict.items():
-        lines.append(f'mikrotik_pppoe_user_status{{user="{user}"}} {status}')
+    for user, data in user_status_dict.items():
+        status = data['status']
+        ip = data['ip']
+        lines.append(f'mikrotik_pppoe_user_status{{user="{user}", ip="{ip}"}} {status}')
 
     payload = '\n'.join(lines) + '\n'
 
     try:
         response = requests.post(PUSH_URL, data=payload)
-
         if response.status_code in (200, 202):
             print('Metrics pushed successfully')
         else:
             print(f'Failed to push metrics: {response.status_code} - {response.text}')
-
     except requests.exceptions.RequestException as e:
         print(f'Error saat mengirim ke Pushgateway: {e}')
 
@@ -80,3 +79,4 @@ def push_to_prometheus(user_status_dict):
 if __name__ == "__main__":
     status = get_pppoe_status()
     push_to_prometheus(status)
+
