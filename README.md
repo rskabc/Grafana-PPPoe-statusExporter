@@ -31,6 +31,6 @@
 ### 1. Clone & Install Dependency
 
 ```bash
-[git clone https://github.com/rskabc/Grafana-PPPoe-statusExporter/pppoe-prometheus-exporter.git](https://github.com/rskabc/Grafana-PPPoe-statusExporter.git)
+git clone https://github.com/rskabc/Grafana-PPPoe-statusExporter/pppoe-prometheus-exporter.git(https://github.com/rskabc/Grafana-PPPoe-statusExporter.git)
 cd pppoe-prometheus-exporter
 pip install -r requirements.txt
